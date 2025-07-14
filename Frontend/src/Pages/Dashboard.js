@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
-import { AlertTriangle, TrendingUp, DollarSign, Zap, Thermometer, Gauge, Factory, Bell, RefreshCw, Download, Settings, Leaf, ArrowUp, ArrowDown, Target } from 'lucide-react';
+import { Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
+import { AlertTriangle, TrendingUp, DollarSign, Zap, Gauge, Factory, Settings, Leaf, Target } from 'lucide-react';
 
 // These are the fundamental parameters for our heat exchanger calculations.
 const U_CLEAN = 2500; // Represents the Overall Heat Transfer Coefficient (U) of the exchanger when it's perfectly clean (W/m²K). This is our ideal performance baseline.
@@ -10,7 +10,7 @@ const OPERATING_HOURS = 24; // Assumes the plant runs 24/7 for daily cost calcul
 const COAL_PRICE = 5000; // Price of coal in Indian Rupees (₹) per ton.
 const CO2_FACTOR = 2.86; // A stoichiometric factor: kg of CO2 produced per kg of coal burned.
 const MAINTENANCE_COST_FACTOR = 0.15; // An assumption: maintenance costs are 15% of the energy loss cost.
-const EFFICIENCY_LOSS_FACTOR = 0.08; // An assumption: other operational inefficiency costs are 8% of the energy loss cost.
+const EFFICIENCY_LOSS_FACTOR = 0.08; // An assumption: other operational inefficiency costs are 8% of the energy loss scost.
 
 // This is sample data to show performance trends over a year.
 const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -195,7 +195,7 @@ function Dashboard() {
 
         fetchData(); // Fetch data when the page loads.
 
-        const interval = setInterval(fetchData, 30000);
+        const interval = setInterval(fetchData, 60000);
         return () => clearInterval(interval);
     }, []); // The empty array [] means this effect runs only once on component mount.
 
