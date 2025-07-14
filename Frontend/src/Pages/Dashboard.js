@@ -2,42 +2,33 @@ import { useState, useEffect, useMemo } from 'react';
 import { Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
 import { AlertTriangle, TrendingUp, DollarSign, Zap, Gauge, Factory, Settings, Leaf, Target } from 'lucide-react';
 
-// These are the fundamental parameters for our heat exchanger calculations.
-const U_CLEAN = 2500; // Represents the Overall Heat Transfer Coefficient (U) of the exchanger when it's perfectly clean (W/m²K). This is our ideal performance baseline.
-const AREA = 44370; // The total heat transfer surface area of the condenser in square meters (m²).
-const ENERGY_RATE = 0.12; // The cost of electricity, in $/kWh. Used to quantify financial impact.
-const OPERATING_HOURS = 24; // Assumes the plant runs 24/7 for daily cost calculations.
-const COAL_PRICE = 5000; // Price of coal in Indian Rupees (₹) per ton.
-const CO2_FACTOR = 2.86; // A stoichiometric factor: kg of CO2 produced per kg of coal burned.
-const MAINTENANCE_COST_FACTOR = 0.15; // An assumption: maintenance costs are 15% of the energy loss cost.
-const EFFICIENCY_LOSS_FACTOR = 0.08; // An assumption: other operational inefficiency costs are 8% of the energy loss scost.
+// Business-critical constants for cost calculations
+const U_CLEAN = 2500; // Peak efficiency heat transfer rate (W/m²K)
+const AREA = 44370; // Total condenser surface area (m²)
+const ENERGY_RATE = 0.12; // Electricity cost ($/kWh)
+const OPERATING_HOURS = 24; // Plant runs 24/7
+const COAL_PRICE = 5000; // Coal cost (₹/ton)
+const CO2_FACTOR = 2.86; // CO2 emissions per kg of coal
+const MAINTENANCE_COST_FACTOR = 0.15; // Maintenance is 15% of energy losses
+const EFFICIENCY_LOSS_FACTOR = 0.08; // Other operational costs
 
-// This is sample data to show performance trends over a year.
+// Sample yearly performance data
 const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const actualScaling = [0.0020, 0.0022, 0.0024, 0.0026, 0.0028, 0.0025, 0.0023, 0.0027, 0.0029, 0.0031, 0.0033, 0.0035]; // Represents fouling factor over months.
-const energyCosts = [12.5, 13.2, 14.1, 15.3, 16.8, 15.9, 14.7, 16.2, 17.5, 18.9, 20.1, 21.3]; // Energy costs in Crores (₹).
+const actualScaling = [0.0020, 0.0022, 0.0024, 0.0026, 0.0028, 0.0025, 0.0023, 0.0027, 0.0029, 0.0031, 0.0033, 0.0035]; // Monthly fouling levels
+const energyCosts = [12.5, 13.2, 14.1, 15.3, 16.8, 15.9, 14.7, 16.2, 17.5, 18.9, 20.1, 21.3]; // Monthly costs (₹ Crores)
 
-// These functions translate raw data into meaningful performance metrics.
-// Calculates how close the current performance is to the ideal 'clean' state. A key measure of fouling impact.
+// Business calculations - convert technical data to financial impact
 const calculateThermalEfficiency = (ufoul, uclean) => (ufoul / uclean) * 100;
-
-// Uses the fundamental heat transfer equation (Q = U * A * LMTD) to find the energy 'lost' due to fouling (Uclean - Ufoul).
-const calculateEnergyLoss = (uclean, ufoul, area, lmtd) => (uclean - ufoul) * area * lmtd / 1000; // Result in kW
-
-// Converts lost energy (kW) into a daily financial cost.
+const calculateEnergyLoss = (uclean, ufoul, area, lmtd) => (uclean - ufoul) * area * lmtd / 1000; // Lost power (kW)
 const calculateDailyCost = (energyLoss, energyRate, hours) => energyLoss * energyRate * hours;
+const calculateCoalConsumption = (energyLoss, hours) => (energyLoss * hours * 0.36) / 1000; // Extra coal needed (tons/day)
+const calculateCO2Emissions = (coalConsumption) => coalConsumption * CO2_FACTOR; // Environmental impact (kg CO2/day)
 
-// Estimates the extra coal needed to compensate for the energy loss, assuming a thermal efficiency for power generation.
-const calculateCoalConsumption = (energyLoss, hours) => (energyLoss * hours * 0.36) / 1000; // tons/day
-
-// Calculates the resulting carbon dioxide emissions from the extra coal burned.
-const calculateCO2Emissions = (coalConsumption) => coalConsumption * CO2_FACTOR; // kg CO2/day
-
-// These are reusable UI components for displaying information.
+// UI styling for dashboard cards
 const KPI_CARD_STYLES = "bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-xl p-6 shadow-lg text-white";
 const KPI_ICON_STYLES = "h-8 w-8 mb-2 opacity-80";
 
-// A 'KpiCard' is one of the main dashboard widgets showing a single, important number.
+// Dashboard metric cards showing key performance indicators
 const KpiCard = ({ title, value, unit, icon, color, trend }) => (
     <div className={KPI_CARD_STYLES}>
         <div className="flex items-center justify-between">
@@ -50,9 +41,8 @@ const KpiCard = ({ title, value, unit, icon, color, trend }) => (
     </div>
 );
 
-// A 'ProfessionalGauge' is the half-circle meter used for showing live process parameters like temperature and pressure.
+// Real-time process monitoring gauges
 const ProfessionalGauge = ({ value, max, min = 0, title, unit, target, status }) => {
-    // ... (This is UI code for drawing the gauge; the logic is mainly for presentation)
     const percentage = ((value - min) / (max - min)) * 100;
     const targetPercentage = ((target - min) / (max - min)) * 100;
     
@@ -120,7 +110,7 @@ const ProfessionalGauge = ({ value, max, min = 0, title, unit, target, status })
     );
 };
 
-// The 'AlertPanel' shows critical warnings when process parameters go outside of safe limits.
+// Critical alert system for immediate management attention
 const AlertPanel = ({ alerts }) => {
     if (alerts.length === 0) {
         return (
@@ -140,9 +130,8 @@ const AlertPanel = ({ alerts }) => {
     );
 };
 
-// This is the main component that brings everything together.
+// Main dashboard component
 function Dashboard() {
-    // 'useState' is how React holds and manages data. 'data' holds all our raw process values.
     const [data, setData] = useState([]);
     const [timeframe, setTimeframe] = useState('24h');
     const [isLoading, setIsLoading] = useState(true);
@@ -150,7 +139,7 @@ function Dashboard() {
     const [showAlerts, setShowAlerts] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
-    // This function simulates fetching live data from a plant's data historian or SCADA system.
+    // Simulates live plant data feed
     const generateMockData = () => {
         const mockData = [];
         const now = new Date();
@@ -158,30 +147,27 @@ function Dashboard() {
             const timestamp = new Date(now.getTime() - i * 30 * 60 * 1000);
             mockData.unshift({
                 Timestamp: timestamp.toISOString(),
-                Psat: 0.153 + Math.random() * 0.01, // Saturation Pressure (bar)
-                Tsat: 52 + Math.random() * 2,      // Saturation Temperature (°C)
-                LMTD: 14 + Math.random() * 2,      // Log Mean Temperature Difference (°C)
-                'Tcw in': 29 + Math.random() * 2,  // Cooling water inlet temp (°C)
-                'Tcw out': 45 + Math.random() * 2, // Cooling water outlet temp (°C)
-                Mcw: 22000 + Math.random() * 1000, // Cooling water mass flow rate (kg/h)
-                Cpw: 4.14,                         // Specific heat of water (kJ/kg·K)
-                Ufoul: 2300 + Math.random() * 100, // The actual (fouled) heat transfer coefficient (W/m²K)
-                Uclean: U_CLEAN,                   // The ideal (clean) heat transfer coefficient (W/m²K)
-                Rfoul: 0.000025 + Math.random() * 0.000005 // The fouling resistance (m²K/W)
+                Psat: 0.153 + Math.random() * 0.01,
+                Tsat: 52 + Math.random() * 2,
+                LMTD: 14 + Math.random() * 2,
+                'Tcw in': 29 + Math.random() * 2,
+                'Tcw out': 45 + Math.random() * 2,
+                Mcw: 22000 + Math.random() * 1000,
+                Cpw: 4.14,
+                Ufoul: 2300 + Math.random() * 100,
+                Uclean: U_CLEAN,
+                Rfoul: 0.000025 + Math.random() * 0.000005 // Key metric: fouling resistance
             });
         }
         return mockData;
     };
 
-    // 'useEffect' is a React hook that runs code after the component renders.
-    // We use it here to fetch the initial data for the dashboard.
+    // Data loading and refresh every minute
     useEffect(() => {
         const fetchData = async () => {
             try {
                 setIsLoading(true);
-                // In a real application, this would be an API call to a server.
-                // We simulate a 1-second network delay.
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
                 const mockData = generateMockData();
                 setData(mockData);
                 setError(null);
@@ -193,25 +179,20 @@ function Dashboard() {
             }
         };
 
-        fetchData(); // Fetch data when the page loads.
-
-        const interval = setInterval(fetchData, 60000);
+        fetchData();
+        const interval = setInterval(fetchData, 60000); // Refresh every minute
         return () => clearInterval(interval);
-    }, []); // The empty array [] means this effect runs only once on component mount.
+    }, []);
 
     const handleRefresh = () => {
-        // This function will be called when the manual refresh button is clicked.
-        // It's not fully implemented here but shows where the logic would go.
         setRefreshing(true);
         setTimeout(() => setRefreshing(false), 1500);
     };
 
-    // 'useMemo' is for performance. It ensures these complex calculations only re-run when the input 'data' changes.
-    // It processes the raw data to be used in charts.
+    // Process raw data for charts and analysis
     const processedData = useMemo(() => {
         if (data.length < 2) return [];
 
-        // ... (Filtering logic based on timeframe '24h', '7d', '30d')
         const now = new Date(data[data.length - 1].Timestamp);
         let filterDate = new Date(now);
         if (timeframe === '24h') filterDate.setDate(now.getDate() - 1);
@@ -220,7 +201,7 @@ function Dashboard() {
         const filteredData = data.filter(d => new Date(d.Timestamp) > filterDate);
         if (filteredData.length < 2) return filteredData;
 
-        // This section uses a simple linear regression to predict the future fouling trend.
+        // Simple trend prediction for maintenance planning
         let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
         const trendData = filteredData.slice(-24);
         trendData.forEach((p, i) => {
@@ -232,7 +213,6 @@ function Dashboard() {
         const n = trendData.length;
         const slope = n > 1 ? (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX) : 0;
 
-        // Adds calculated values (like efficiency) to each data point for charting.
         return filteredData.map((point, index) => {
             const prevPoint = filteredData[index - 1] || point;
             const predictedRfoul = prevPoint.Rfoul + slope;
@@ -240,14 +220,14 @@ function Dashboard() {
                 ...point,
                 name: new Date(point.Timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
                 'Actual Rfoul': point.Rfoul,
-                'Predicted Rfoul': Math.max(predictedRfoul, 0), // Fouling can't be negative
+                'Predicted Rfoul': Math.max(predictedRfoul, 0),
                 efficiency: calculateThermalEfficiency(point.Ufoul, point.Uclean),
                 energyLoss: calculateEnergyLoss(point.Uclean, point.Ufoul, AREA, point.LMTD)
             };
         });
     }, [data, timeframe]);
 
-    // This 'useMemo' calculates the most current statistics for the KPI cards and gauges.
+    // Current performance metrics and cost impact
     const currentStats = useMemo(() => {
         if (processedData.length === 0) return null;
         const lastPoint = processedData[processedData.length - 1];
@@ -260,10 +240,10 @@ function Dashboard() {
         
         const maintenanceCost = dailyCost * MAINTENANCE_COST_FACTOR;
         const efficiencyLossCost = dailyCost * EFFICIENCY_LOSS_FACTOR;
-        const environmentalCost = coalConsumption * COAL_PRICE * 0.02; // Assumes a 2% environmental tax/cost.
+        const environmentalCost = coalConsumption * COAL_PRICE * 0.02;
         const totalDailyCost = dailyCost + maintenanceCost + efficiencyLossCost + environmentalCost;
 
-        // This section defines the conditions for triggering alerts.
+        // Business-critical alert conditions
         const alerts = [];
         if (lastPoint.Rfoul > 0.00026) {
             alerts.push(`CRITICAL: Fouling Resistance (${(lastPoint.Rfoul * 1000000).toFixed(1)}×10⁻⁶) has exceeded the threshold.`);
@@ -284,7 +264,6 @@ function Dashboard() {
             totalDailyCost,
             co2Emissions,
             alerts,
-            // ... other calculated values for display
             dailyCost,
             maintenanceCost,
             efficiencyLossCost,
@@ -292,7 +271,7 @@ function Dashboard() {
         };
     }, [processedData]);
 
-    // This 'useMemo' prepares the data for the 'Daily Cost Analysis' pie chart.
+    // Cost breakdown for management reporting
     const costBreakdown = useMemo(() => {
         if (!currentStats) return [];
         return [
@@ -303,7 +282,7 @@ function Dashboard() {
         ];
     }, [currentStats]);
 
-    // These are checks for loading/error states.
+    // Loading states
     if (isLoading) {
         return <div className="flex items-center justify-center h-screen bg-slate-900 text-white">Loading Dashboard...</div>;
     }
@@ -314,10 +293,9 @@ function Dashboard() {
         return <div className="flex items-center justify-center h-screen bg-slate-900 text-white">No data available to display.</div>;
     }
 
-    // The following JSX code structures the visual layout of the dashboard.
     return (
         <div className="bg-slate-900 min-h-screen text-white font-sans">
-            {/* Header section with title and time-frame buttons */}
+            {/* Header */}
             <div className="bg-slate-800 border-b border-slate-700 sticky top-0 z-50">
                 <div className="max-w-7xl mx-auto px-6 py-4">
                     <div className="flex items-center justify-between">
@@ -334,29 +312,28 @@ function Dashboard() {
                         </div>
                         
                         <div className="flex items-center gap-3">
-                             {/* ... (Buttons for timeframe, refresh, etc.) */}
+                             
                         </div>
                     </div>
                 </div>
             </div>
 
             <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
-                {/* Alert panel, which only shows if there are active alerts */}
+                {/* Critical alerts for immediate action */}
                 {showAlerts && currentStats.alerts.length > 0 && (
                     <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-lg">
                         <AlertPanel alerts={currentStats.alerts} />
                     </div>
                 )}
 
-                {/* KPI Cards Section */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"> {/* Changed to 3 columns */}
+                {/* Key business metrics */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <KpiCard 
                         title="Fouling Resistance" 
                         value={(currentStats.Rfoul * 1000000).toFixed(1)} 
                         unit="×10⁻⁶ m²K/W" 
                         icon={<TrendingUp className={KPI_ICON_STYLES} />} 
                         color="#f97316" 
-                        // --- CHANGE --- 'trend' prop removed
                     />
                     <KpiCard 
                         title="Thermal Efficiency" 
@@ -364,20 +341,17 @@ function Dashboard() {
                         unit="%" 
                         icon={<Zap className={KPI_ICON_STYLES} />} 
                         color="#22c55e" 
-                        // --- CHANGE --- 'trend' prop removed
                     />
-                    {/* --- CHANGE --- The 'Daily Cost Impact' KpiCard has been removed. */}
                     <KpiCard 
                         title="CO₂ Emissions" 
                         value={currentStats.co2Emissions.toFixed(0)} 
                         unit="kg/day" 
                         icon={<Leaf className={KPI_ICON_STYLES} />} 
                         color="#10b981"
-                        // This card did not have a trend prop to begin with
                     />
                 </div>
 
-                {/* Real-time Gauges for process parameters */}
+                {/* Live process monitoring */}
                 <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-lg">
                     <h2 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
                         <Gauge className="w-5 h-5 text-cyan-400" />
@@ -411,13 +385,12 @@ function Dashboard() {
                     </div>
                 </div>
 
-                {/* Main chart showing fouling resistance over time */}
+                {/* Performance trends and cost analysis */}
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                     <div className="xl:col-span-2 bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-lg">
                         <h2 className="text-xl font-semibold text-cyan-200 mb-4">Fouling Resistance - Actual vs. Predicted</h2>
                         <ResponsiveContainer width="100%" height={400}>
                             <AreaChart data={processedData}>
-                                {/* ... (Chart components) */}
                                 <CartesianGrid strokeDasharray="3 3" stroke="#4A5568" />
                                 <XAxis dataKey="name" stroke="#A0AEC0" />
                                 <YAxis stroke="#A0AEC0" domain={['auto', 'auto']} tickFormatter={(tick) => (tick * 1000000).toFixed(1)} />
@@ -432,7 +405,7 @@ function Dashboard() {
                         </ResponsiveContainer>
                     </div>
 
-                    {/* Cost breakdown pie chart */}
+                    {/* Daily cost breakdown */}
                     <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-lg">
                          <h2 className="text-lg font-semibold text-cyan-200 mb-6 flex items-center gap-2">
                             <DollarSign className="w-5 h-5 text-green-400" />
@@ -470,8 +443,7 @@ function Dashboard() {
                     </div>
                 </div>
 
-        {/* --- CHANGE --- This section has been updated to ensure text is visible. */}
-        {/* It shows a summary table of historical monthly data. */}
+        {/* Historical performance and actionable recommendations */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-800 mb-4">Monthly Performance Summary</h2>
@@ -488,7 +460,6 @@ function Dashboard() {
                 <tbody>
                   {months.map((month, index) => (
                     <tr key={month} className="border-b border-slate-100 hover:bg-slate-50">
-                      {/* Added text color class 'text-slate-900' to ensure visibility */}
                       <td className="py-2 px-2 font-medium text-slate-900">{month}</td>
                       <td className="py-2 px-2 text-slate-900 text-right">{actualScaling[index].toFixed(4)}</td>
                       <td className="py-2 px-2 text-slate-900 text-right">₹{energyCosts[index]} Cr</td>
@@ -506,7 +477,7 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* This section gives actionable recommendations based on the current data. */}
+          {/* Management action items */}
           <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-800 mb-4">Maintenance Recommendations</h2>
             <div className="space-y-4">
